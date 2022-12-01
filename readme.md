@@ -9,5 +9,5 @@
 ## Usage ##
 
 ```bash
-./images-similarity <img1 <img2>
+./images-similarity <img1> <img2>
 ```
