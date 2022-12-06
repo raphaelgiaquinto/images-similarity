@@ -7,33 +7,54 @@ int main(int argc, char** argv) {
         return EXIT_FAILURE;
     }
 
-    cv::Mat im0;
-    cv::MatND hist_im0;
+    cv::Mat origin;
+    cv::Mat compared;
 
-    cv::Mat im1;
-    cv::MatND hist_im1;
+    cv::Ptr<cv::FeatureDetector> detector = cv::ORB::create();
+    cv::Ptr<cv::DescriptorExtractor> descriptor = cv::ORB::create();
+    cv::Ptr<cv::DescriptorMatcher> matcher  = cv::DescriptorMatcher::create ( "BruteForce-Hamming" );
 
-    im0 = cv::imread(argv[1], cv::IMREAD_GRAYSCALE);
-    im1 = cv::imread(argv[2], cv::IMREAD_GRAYSCALE);
+    origin = cv::imread(argv[1], cv::IMREAD_COLOR);
+    compared = cv::imread(argv[2], cv::IMREAD_COLOR);   
 
-    float hranges[] = { 0, 255 };
-    const float* ranges[] = {hranges};
-    int channels[] = {0};
-    int hist_size[] = {255};
+    cv::Size resize(480, 480);
+    cv::resize(origin, origin, resize);
+    cv::resize(compared, compared, resize);
 
-    cv::calcHist(&im0, 1, channels, cv::Mat(), hist_im0, 1, hist_size, ranges, true, false);
-    cv::calcHist(&im1, 1, channels, cv::Mat(), hist_im1, 1, hist_size, ranges, true, false);
+    std::vector<cv::KeyPoint> keypointsOrigin, keypointsCompared;
+    cv::Mat descriptorsOrigin, descriptorsCompared;
 
-    double diff = cv::compareHist( hist_im0, hist_im1, cv::HISTCMP_HELLINGER );
+    detector->detect(origin ,keypointsOrigin);
+    detector->detect(compared, keypointsCompared);
 
-    std::cout << "| 0 same " << std::endl;
-    std::cout << "| ~ 0.1 similar " << std::endl;
-    std::cout << "| 0.2 - 0.3 really similar " << std::endl;
-    std::cout << "| 0.3 - 0.5 approximately similar " << std::endl;
-    std::cout << "| 0.5 - 0.8 quite different " << std::endl;
-    std::cout << "| > 0.8 much different " << std::endl;
+    descriptor->compute(origin, keypointsOrigin, descriptorsOrigin);
+    descriptor->compute(compared, keypointsCompared, descriptorsCompared);
 
-    std::cout << "Distance between images (hellinger distance): " << std::fixed << diff << std::endl;
+    std::vector<cv::DMatch> matches;
+
+    matcher->match(descriptorsOrigin, descriptorsCompared, matches);
+
+    double min_dist=10000, max_dist=0;
+
+    for(int i = 0; i < descriptorsOrigin.rows; i++ ){
+        double dist = matches[i].distance;
+        if (dist < min_dist) min_dist = dist;
+        if (dist > max_dist) max_dist = dist;
+    }
+    std::vector<cv::DMatch > good_matches;
+    for(int i = 0; i < descriptorsOrigin.rows; i++){
+        if(matches[i].distance <= min_dist * 1.10 ){
+            good_matches.push_back(matches[i]);
+        }
+    }   
+
+    std::cout << matches.size() << " matches | " << good_matches.size() << " good matches" << std::endl;
+    double percent = ((double) good_matches.size() / (double) matches.size()) * 100.0;
+    std::cout << percent << "\% percent of good matches" << std::endl;
+    cv::Mat img_goodmatch;
+    cv::drawMatches( origin, keypointsOrigin, compared, keypointsCompared, good_matches, img_goodmatch);
+    cv::imshow ( "good match", img_goodmatch );
+    cv::waitKey(0);
    
     return EXIT_SUCCESS;
 }
