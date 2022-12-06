@@ -7,8 +7,6 @@ int main(int argc, char** argv) {
         return EXIT_FAILURE;
     }
 
-    std::vector<cv::Mat> images;
-
     cv::Mat im0;
     cv::MatND hist_im0;
 
